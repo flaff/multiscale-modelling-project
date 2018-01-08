@@ -1,0 +1,19 @@
+.unspreadableCell, .customUnspreadableCell {
+    width: 20px;
+    height: 20px;
+    vertical-align: middle;
+    display: inline-block;
+    margin: 3px;
+}
+
+.customUnspreadableCell {
+    cursor: pointer;
+}
+
+.customUnspreadableCell:hover {
+    border: 2px solid red;
+}
+
+.unspreadableCellContainer {
+    display: inline-block;
+}

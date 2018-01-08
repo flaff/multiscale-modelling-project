@@ -1,0 +1,14 @@
+.progressbar {
+    width: 400px;
+    height: 6px;
+    background: #fafafa;
+    display: flex;
+    overflow: hidden;
+    border-radius: 10px;
+    margin: 5px auto 20px;
+}
+
+.progressbar-fill {
+    background: #5cb85c;
+    height: 100%;
+}
