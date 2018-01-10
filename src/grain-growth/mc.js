@@ -1,15 +1,15 @@
 import React, {Component} from 'react';
 import MonteCarloDisplay from './mc-display';
-import {createMatrix} from "./utils/mc-logic";
-import {bufferToBase64, CanvasToBMP} from "./utils/bitmap-utils";
-import {bufferToString} from "./utils/text-utils";
-import {saveAs} from "../lib/index";
+import {createMatrix} from './utils/mc-logic';
+import {bufferToBase64, CanvasToBMP} from './utils/bitmap-utils';
+import {bufferToString} from './utils/text-utils';
+import {saveAs} from '../lib/index';
 import Base64Image from './utils/base64-image';
 import {
     CellType, Neighbourhood, getNeighbourhoodName, NeighbourhoodList, ComplexNeighbourhood, ClearNonStaticMode,
     NucleationMode, NucleationIncrement
-} from "./grain-growth.consts";
-import {InclusionShape, InclusionShapesList, ComputationMode} from "./grain-growth.consts";
+} from './grain-growth.consts';
+import {InclusionShape, InclusionShapesList, ComputationMode} from './grain-growth.consts';
 import './mc.css';
 import ProgressBar from './progressbar';
 
@@ -240,8 +240,10 @@ function addCell(matrix, i, j, cell) {
 
     return matrix;
 }
+
 let __cache__getRandomGrainBorder_matrixResults = null,
-    __cache__getRandomGrainBorder_matrix =  null;
+    __cache__getRandomGrainBorder_matrix = null;
+
 function getRandomGrainBorder(matrix, forceAll) {
     let results = void 0;
 
@@ -299,8 +301,8 @@ function addRandomCell(matrix, i, j) {
 
 function addInclusion_square(matrix, x, y, diagonal) {
     const width = Math.round(diagonal / Math.sqrt(2));
-    for (let i = -Math.floor(width/2); i <= Math.ceil(width/2); i++) {
-        for (let j = -Math.floor(width/2); j <= Math.ceil(width/2); j++) {
+    for (let i = -Math.floor(width / 2); i <= Math.ceil(width / 2); i++) {
+        for (let j = -Math.floor(width / 2); j <= Math.ceil(width / 2); j++) {
             // absorbing boundary condition check
             if (x + i >= 0 && x + i < matrix.length && y + j >= 0 && y + j < matrix.length) {
                 addCell(matrix, x + i, y + j, {id: CellType.INCLUSION});
@@ -348,7 +350,8 @@ class MonteCarlo extends Component {
             nucleationMode: NucleationMode.BORDERS,
             nucleationIncrement: NucleationIncrement.ONCE,
             nucleationIncrementValue: 10,
-            currentNucleationValue: 0
+            currentNucleationValue: 0,
+            homogenousDistribution: 2
         };
     }
 
@@ -382,7 +385,6 @@ class MonteCarlo extends Component {
             matrix
         });
     }
-
 
 
     addInclusion(times = this.state.inclusionAmount) {
@@ -610,7 +612,13 @@ class MonteCarlo extends Component {
 
         prevMatrix = matrix;
 
-        this.setState({...this.state, prevMatrix, matrix, step: this.state.step + 1, percentDone: 100 * (totalTimes-times)/totalTimes});
+        this.setState({
+            ...this.state,
+            prevMatrix,
+            matrix,
+            step: this.state.step + 1,
+            percentDone: 100 * (totalTimes - times) / totalTimes
+        });
 
         times && setTimeout(() => {
             this.computeNextStep(times - 1, totalTimes);
@@ -618,7 +626,7 @@ class MonteCarlo extends Component {
 
     }
 
-        clearNonStaticGrains() {
+    clearNonStaticGrains() {
         const staticCellTypes = getUnspreadableCellTypes(),
             matrix = JSON.parse(JSON.stringify(this.state.matrix)),
             customUnspreadableCellTypes = getCustomUnspreadableCellTypes(),
@@ -787,6 +795,22 @@ class MonteCarlo extends Component {
         this.setState({...this.state, probability: +event.target.value});
     }
 
+    onHomogenousDistributionInputChange(event) {
+        this.setState({...this.state, homogenousDistribution: event.target.value});
+    }
+
+    onDistributeHomogenouslyEnergyClick() {
+        const matrix = JSON.parse(JSON.stringify(this.state.matrix));
+
+        for (let x = 0; x < matrix.length; x++) {
+            for (let y = 0; y < matrix[0].length; y++) {
+                matrix[x][y].H = this.state.homogenousDistribution;
+            }
+        }
+
+        this.setState({...this.state, matrix});
+    }
+
     onComputationModeSelectChange(event) {
         this.setState({...this.state, computationMode: event.target.value});
     }
@@ -796,7 +820,8 @@ class MonteCarlo extends Component {
     }
 
     onNucleationIncrementChange(event) {
-        this.setState({...this.state, nucleationIncrement: event.target.value,
+        this.setState({
+            ...this.state, nucleationIncrement: event.target.value,
             currentNucleationValue: event.target.value === NucleationIncrement.INCREASING ? 0 : this.state.nucleationIncrementValue
         });
     }
@@ -835,63 +860,94 @@ class MonteCarlo extends Component {
                     <div style={{margin: '0 auto', display: 'inline-block'}}>
                         <MonteCarloDisplay matrix={this.state.matrix} prevMatrix={this.state.prevMatrix}
                                            onGrainClick={this.onGrainClick.bind(this)}
-                                        ref={'display'} />
+                                           ref={'display'}/>
 
+                        {this.state.computationMode === ComputationMode.SRX_MONTE_CARLO &&
                         <MonteCarloDisplay matrix={toEnergyMatrix(this.state.matrix)}
                                            onGrainClick={this.onGrainClick.bind(this)}
-                                           ref={'energyDisplay'} />
+                                           ref={'energyDisplay'}/>
+                        }
                     </div>
                 </div>
 
-                <ProgressBar percent={this.state.percentDone} />
+                <ProgressBar percent={this.state.percentDone}/>
 
-                <div className={'row'}>
-                    <div className={'col-lg-1'}/>
+                {this.state.computationMode === ComputationMode.SRX_MONTE_CARLO && (<div>
+                    <div className={'row'}>
+                        <div className={'col-lg-1'}/>
 
-                    <div className={'col-lg-3'}>
-                        <select value={this.state.nucleationMode}
-                                onChange={this.onNucleationModeChange.bind(this)}
-                                disabled={this.state.computationMode !== ComputationMode.SRX_MONTE_CARLO}
-                                className="form-control" >
-                            {Object.keys(NucleationMode).map((key) =>
-                                (<option value={NucleationMode[key]} key={key}>{key}</option>))
-                            }
-                        </select>
-                    </div>
+                        <div className={'col-lg-4'}>
+                            <div className="input-group">
+                                <span className="input-group-addon">Homogenous energy distribution</span>
+                                <input value={this.state.homogenousDistribution}
+                                       disabled={this.state.computationMode !== ComputationMode.SRX_MONTE_CARLO || !this.state.step}
+                                       onChange={this.onHomogenousDistributionInputChange.bind(this)}
+                                       className="form-control"/>
 
-                    <div className={'col-lg-3'}>
-                        <select value={this.state.nucleationIncrement}
-                                onChange={this.onNucleationIncrementChange.bind(this)}
-                                disabled={this.state.computationMode !== ComputationMode.SRX_MONTE_CARLO}
-                                className="form-control" >
-                            {Object.keys(NucleationIncrement).map((key) =>
-                                (<option value={NucleationIncrement[key]} key={key}>{key}</option>))
-                            }
-                        </select>
-                    </div>
-
-                    <div className={'col-lg-3'}>
-                        <div className="input-group">
-                            <input type="text" className="form-control"
-                                   disabled={this.state.computationMode !== ComputationMode.SRX_MONTE_CARLO}
-                                   value={this.state.nucleationIncrementValue}
-                                   onChange={this.onNucleationIncrementAmountChange.bind(this)}/>
-                            {
-                                (this.state.nucleationIncrement === NucleationIncrement.ONCE) &&
-                                <button className="btn" onClick={this.onAddNucleationsClick.bind(this)}
-                                        disabled={this.state.computationMode !== ComputationMode.SRX_MONTE_CARLO}>
-                                    Add
+                                <button className="btn btn-outline-primary" onClick={this.onDistributeHomogenouslyEnergyClick.bind(this)}
+                                        disabled={this.state.computationMode !== ComputationMode.SRX_MONTE_CARLO || !this.state.step}>
+                                    Distribute
                                 </button>
-                            }
+                            </div>
+                        </div>
+
+                        <div className={'col-lg-2'}/>
+
+                        <div className={'col-lg-3'} style={{textAlign: 'right', marginTop: '10px'}}>
+                            <button className="btn btn-outline-primary" onClick={this.onSetBordersAsEnergyClick.bind(this)}
+                                    disabled={this.state.computationMode !== ComputationMode.SRX_MONTE_CARLO || !this.state.step}>
+                                Add Energy on Borders
+                            </button>
+                        </div>
+
+                    </div>
+
+                    <div style={{margin: '15px 0'}}/>
+
+
+                    <div className={'row'}>
+                        <div className={'col-lg-1'}/>
+
+                        <div className={'col-lg-3'}>
+                            <select value={this.state.nucleationMode}
+                                    onChange={this.onNucleationModeChange.bind(this)}
+                                    disabled={this.state.computationMode !== ComputationMode.SRX_MONTE_CARLO || !this.state.step}
+                                    className="form-control">
+                                {Object.keys(NucleationMode).map((key) =>
+                                    (<option value={NucleationMode[key]} key={key}>{key}</option>))
+                                }
+                            </select>
+                        </div>
+
+                        <div className={'col-lg-3'}>
+                            <select value={this.state.nucleationIncrement}
+                                    onChange={this.onNucleationIncrementChange.bind(this)}
+                                    disabled={this.state.computationMode !== ComputationMode.SRX_MONTE_CARLO || !this.state.step}
+                                    className="form-control">
+                                {Object.keys(NucleationIncrement).map((key) =>
+                                    (<option value={NucleationIncrement[key]} key={key}>{key}</option>))
+                                }
+                            </select>
+                        </div>
+
+                        <div className={'col-lg-3'}>
+                            <div className="input-group">
+                                <input type="text" className="form-control"
+                                       disabled={this.state.computationMode !== ComputationMode.SRX_MONTE_CARLO || !this.state.step}
+                                       value={this.state.nucleationIncrementValue}
+                                       onChange={this.onNucleationIncrementAmountChange.bind(this)}/>
+                                {
+                                    (this.state.nucleationIncrement === NucleationIncrement.ONCE) &&
+                                    <button className="btn btn-outline-primary" onClick={this.onAddNucleationsClick.bind(this)}
+                                            disabled={this.state.computationMode !== ComputationMode.SRX_MONTE_CARLO || !this.state.step}>
+                                        Add
+                                    </button>
+                                }
+                            </div>
                         </div>
                     </div>
-
-                    <div className={'col-lg-10'} style={{textAlign: 'right', marginTop: '10px'}}>
-                    <button className="btn" onClick={this.onSetBordersAsEnergyClick.bind(this)}>
-                        Add Energy on Borders
-                    </button>
-                    </div>
-                </div>
+                </div>)
+                }
 
                 <div style={{margin: '15px 0'}}/>
 
@@ -919,8 +975,9 @@ class MonteCarlo extends Component {
                                 onClick={() => this.state.step ? this.reset() : this.initMatrix()}>{this.state.step ? 'reset' : 'initialize'}</button>
                     </div>
                     <div className={'col-lg-2'}>
-                        <select value={this.state.computationMode} onChange={this.onComputationModeSelectChange.bind(this)}
-                                className="form-control" >
+                        <select value={this.state.computationMode}
+                                onChange={this.onComputationModeSelectChange.bind(this)}
+                                className="form-control">
                             {Object.keys(ComputationMode).map((key) =>
                                 (<option value={ComputationMode[key]} key={key}>{key}</option>))
                             }
@@ -1012,7 +1069,7 @@ class MonteCarlo extends Component {
                         </div>
                     </div>
 
-                    <div className="col-lg-1" />
+                    <div className="col-lg-1"/>
 
                 </div>
 
@@ -1027,20 +1084,23 @@ class MonteCarlo extends Component {
                             <span className="input-group-addon">
                                 <div className="unspreadableCellContainer">
                                     {defaultUnspreadableCellTypes.map((id) => (
-                                        <div className="unspreadableCell" style={{background: `rgb(${id})`}} key={id}></div>
+                                        <div className="unspreadableCell" style={{background: `rgb(${id})`}}
+                                             key={id}></div>
                                     ))}
                                 </div>
                             </span>
                             <span className="input-group-addon">
                                 <div className="unspreadableCellContainer">
                                     {this.state.unspreadableCellTypes.map((id) => (
-                                        <div className="customUnspreadableCell" style={{background: `rgb(${id})`}} key={id}
+                                        <div className="customUnspreadableCell" style={{background: `rgb(${id})`}}
+                                             key={id}
                                              onClick={() => this.onStaticGrainRemoveClick(id)}></div>
                                     ))}
                                 </div>
                             </span>
-                            <select value={this.state.clearNonStaticMode} onChange={this.onClearNonStaticModeChange.bind(this)}
-                                    className="form-control" >
+                            <select value={this.state.clearNonStaticMode}
+                                    onChange={this.onClearNonStaticModeChange.bind(this)}
+                                    className="form-control">
                                 {Object.keys(ClearNonStaticMode).map((key) =>
                                     (<option value={ClearNonStaticMode[key]} key={key}>{key}</option>))
                                 }
@@ -1065,14 +1125,15 @@ class MonteCarlo extends Component {
 
                 <div className="row">
 
-                    <div className="col-lg-1" />
+                    <div className="col-lg-1"/>
 
                     <div className="col-lg-9">
                         <div className="input-group">
                             <span className="input-group-addon">inclusion:</span>
 
                             <select className="form-control"
-                                    value={this.state.inclusionShape} onChange={this.onInclusionShapeSelectChange.bind(this)}>
+                                    value={this.state.inclusionShape}
+                                    onChange={this.onInclusionShapeSelectChange.bind(this)}>
                                 {InclusionShapesList.map((shape) => (
                                     <option value={shape} key={shape}>{shape}</option>
                                 ))}
@@ -1104,14 +1165,15 @@ class MonteCarlo extends Component {
                 <div style={{margin: '15px 0'}}/>
 
                 <div className="row">
-                    <div className="col-lg-1" />
+                    <div className="col-lg-1"/>
 
                     <div className="col-lg-4">
 
                         <div className="input-group">
                             <span className="input-group-addon">neighbourhood:</span>
 
-                            <select className="form-control" value={this.state.selectedNeighbourhoodType} onChange={this.onNeighbourhoodTypeSelectChange.bind(this)}>
+                            <select className="form-control" value={this.state.selectedNeighbourhoodType}
+                                    onChange={this.onNeighbourhoodTypeSelectChange.bind(this)}>
                                 {NeighbourhoodList.map(({value, label}) => (
                                     <option value={value} key={value}>{label || value}</option>
                                 ))}
@@ -1119,7 +1181,7 @@ class MonteCarlo extends Component {
                         </div>
                     </div>
 
-                    <div className="col-lg-1" />
+                    <div className="col-lg-1"/>
 
                     <div className="col-lg-4">
 
